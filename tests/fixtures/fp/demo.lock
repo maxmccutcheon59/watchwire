@@ -1,0 +1,4 @@
+# fake lockfile — excluded by **/*.lock default glob
+some-pkg@1.0.0:
+  integrity sha512-AbCdEfGhIjKlMnOpQrStUvWxYzAbCdEfGhIjKlMnOpQrStUvWxYzAbCdEfGhIjKlMn==
+  resolved "https://example.invalid/pkg.tgz"

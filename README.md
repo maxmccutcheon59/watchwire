@@ -76,6 +76,49 @@ Detects (among others):
 | Slack tokens | `xoxb-…` |
 | High-entropy strings | long base64-ish runs |
 
+
+### Policy file (`watchwire.toml`)
+
+Optional local policy — foundation for later team policy packs. Loaded from
+`./watchwire.toml` in the current working directory, or via `--config PATH`.
+
+```bash
+watchwire scan ./my-project
+watchwire scan ./my-project --config ./examples/watchwire.toml
+```
+
+Example schema (see also [`examples/watchwire.toml`](examples/watchwire.toml)):
+
+```toml
+[scan]
+# Additive excludes (defaults already cover node_modules, *.lock, poetry.lock, …)
+exclude = ["**/vendor/**", "**/*.min.js"]
+# use_default_excludes = true
+min_entropy = 4.5
+min_entropy_length = 20
+
+[rules]
+aws_access_key_id = true
+github_token = true
+github_fine_grained = true
+private_key_header = true
+slack_token = true
+generic_api_key_assignment = true
+high_entropy = true   # alias: entropy = true|false
+```
+
+| Key | Meaning |
+|-----|---------|
+| `[scan].exclude` | Path globs to skip (`**` supported) |
+| `[scan].use_default_excludes` | Keep built-in lockfile/vendor globs (default `true`) |
+| `[scan].min_entropy` | Shannon threshold for `high_entropy` (default `4.5`) |
+| `[scan].min_entropy_length` | Min token length for entropy pass (default `20`) |
+| `[rules].*` | Booleans to enable/disable rule kinds |
+
+**Entropy FP classes** (auto-suppressed; see `tests/fixtures/fp/`): UUIDs, pure
+hex digests ≥32 chars, low-diversity base64 padding. Lockfile hashes are also
+skipped via default exclude globs.
+
 ### Process summary (`/proc`)
 
 ```bash
@@ -106,7 +149,7 @@ In another repo’s `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/maxmccutcheon59/watchwire
-    rev: v0.2.0   # or a commit SHA
+    rev: v0.3.0   # or a commit SHA
     hooks:
       - id: watchwire-scan
 ```
@@ -122,7 +165,7 @@ Root [`action.yml`](action.yml) installs Watchwire from this repo and runs `scan
 
 - name: Scan with Watchwire
   id: ww
-  uses: maxmccutcheon59/watchwire@v0.2.0   # pin tag or SHA
+  uses: maxmccutcheon59/watchwire@v0.3.0   # pin tag or SHA
   with:
     path: "."
     sarif-file: watchwire.sarif
@@ -153,16 +196,20 @@ Requires `permissions: security-events: write` for Code Scanning upload. **Not**
 watchwire/
 ├── action.yml                 # composite GitHub Action (scan + optional SARIF)
 ├── .pre-commit-hooks.yaml     # reusable pre-commit hook definition
-├── examples/github-action-scan.yml
+├── examples/
+│   ├── github-action-scan.yml
+│   └── watchwire.toml         # example policy file
+├── CHANGELOG.md
 ├── src/watchwire/
 │   ├── cli.py        # argparse entry; subcommands only
 │   ├── scan.py       # walk tree → regex patterns + entropy
+│   ├── policy.py     # watchwire.toml loader (globs + rule toggles)
 │   ├── output.py     # JSON + SARIF 2.1.0 serializers
-│   ├── entropy.py    # Shannon entropy helper
+│   ├── entropy.py    # Shannon entropy + known FP filters
 │   ├── proc.py       # /proc reader (proc_root injectable)
 │   └── hygiene.py    # permission bit checks
 ├── tests/
-│   ├── fixtures/     # fake AKIA/ghp_/PEM/Slack samples
+│   ├── fixtures/     # fake secrets + fp/ (must stay clean)
 │   └── test_*.py
 └── .github/workflows/ci.yml
 ```
@@ -174,6 +221,7 @@ watchwire/
 - **Redaction**: findings print truncated snippets, not full secrets.
 - **Stdlib runtime**: easy to audit; optional `pytest` / `ruff` only for development.
 - **CI-friendly**: JSON/SARIF, pre-commit, and a composite Action — still no off-box exfiltration by the tool itself.
+- **Policy file**: optional `watchwire.toml` for path globs and rule toggles (local OSS; team packs later).
 
 ---
 

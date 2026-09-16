@@ -1,0 +1,29 @@
+# Example Watchwire policy file (OSS). Copy to repo root as watchwire.toml
+# or pass --config PATH. Foundation for later team policy packs.
+#
+# Schema:
+#   [scan]   path excludes + entropy thresholds
+#   [rules]  enable/disable rule kinds (bool; omit = enabled)
+
+[scan]
+# Extra globs on top of built-in defaults (node_modules, *.lock, poetry.lock, …).
+# Set use_default_excludes = false to replace defaults entirely.
+exclude = [
+  "**/vendor/**",
+  "**/dist/**",
+  "**/*.min.js",
+]
+# use_default_excludes = true
+min_entropy = 4.5
+min_entropy_length = 20
+
+[rules]
+# Pattern toggles — set false to disable a kind.
+aws_access_key_id = true
+github_token = true
+github_fine_grained = true
+private_key_header = true
+slack_token = true
+generic_api_key_assignment = true
+# "entropy" is an alias for high_entropy
+high_entropy = true

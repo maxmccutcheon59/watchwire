@@ -50,4 +50,4 @@ def test_version(capsys) -> None:
         main(["--version"])
     except SystemExit as e:
         assert e.code == 0
-    assert "0.2.0" in capsys.readouterr().out
+    assert "0.3.0" in capsys.readouterr().out

@@ -93,3 +93,25 @@ def test_fixtures_directory_has_expected_kinds() -> None:
     # clean.txt must not poison the suite with a false positive alone
     clean_hits = [f for f in findings if f.path.endswith("clean.txt")]
     assert clean_hits == []
+
+
+def test_fp_fixtures_stay_clean() -> None:
+    """Committed FP fixtures under tests/fixtures/fp/ must not produce findings."""
+    fp_dir = Path(__file__).resolve().parent / "fixtures" / "fp"
+    findings = scan_path(fp_dir)
+    assert findings == [], f"unexpected FP findings: {findings}"
+
+
+def test_real_fixtures_still_flag() -> None:
+    """Positive fixtures (aws/github/pem/slack) still detect after entropy FP pass."""
+    fixtures = Path(__file__).resolve().parent / "fixtures"
+    findings = scan_path(fixtures)
+    kinds = {f.kind for f in findings}
+    assert "aws_access_key_id" in kinds
+    assert "github_token" in kinds
+    assert "private_key_header" in kinds
+    assert "slack_token" in kinds
+    # No hits under fp/
+    assert not any("/fp/" in f.path.replace("\\", "/") or f.path.endswith(
+        ("uuids.txt", "hashes.txt", "base64_padding.txt", "demo.lock", "package-lock.json")
+    ) and f.kind == "high_entropy" for f in findings)

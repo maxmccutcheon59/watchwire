@@ -1,0 +1,3 @@
+# Low-diversity base64 padding noise — must NOT fire
+filler=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
+noise=xxxxxxxxxxxxxxxxxxxxxxxxxxxx==

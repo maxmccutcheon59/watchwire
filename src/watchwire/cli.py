@@ -17,6 +17,7 @@ from watchwire.output import (
     hygiene_to_json_dict,
     proc_to_json_dict,
 )
+from watchwire.policy import ScanPolicy, resolve_policy
 from watchwire.proc import list_pids, summarize_pid
 from watchwire.scan import Finding, scan_path
 
@@ -28,10 +29,10 @@ def _emit(text: str, output: Path | None) -> None:
         sys.stdout.write(text)
 
 
-def _scan_paths(paths: list[Path]) -> list[Finding]:
+def _scan_paths(paths: list[Path], policy: ScanPolicy) -> list[Finding]:
     findings: list[Finding] = []
     for path in paths:
-        findings.extend(scan_path(path))
+        findings.extend(scan_path(path, policy=policy))
     return findings
 
 
@@ -45,11 +46,23 @@ def _resolve_scan_format(args: argparse.Namespace) -> str:
     return getattr(args, "format", "text") or "text"
 
 
+def _load_scan_policy(args: argparse.Namespace) -> ScanPolicy:
+    try:
+        return resolve_policy(config=getattr(args, "config", None))
+    except FileNotFoundError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        raise SystemExit(2) from exc
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        raise SystemExit(2) from exc
+
+
 def _cmd_scan(args: argparse.Namespace) -> int:
     paths: list[Path] = args.paths
     path_label = str(paths[0]) if len(paths) == 1 else f"{len(paths)} paths"
+    policy = _load_scan_policy(args)
     try:
-        findings = _scan_paths(paths)
+        findings = _scan_paths(paths, policy)
     except FileNotFoundError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -153,6 +166,14 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         metavar="PATH",
         help="File(s) or directory(ies) to scan",
+    )
+    scan_p.add_argument(
+        "--config",
+        "-c",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="Path to watchwire.toml (default: ./watchwire.toml if present)",
     )
     scan_p.add_argument(
         "--json",

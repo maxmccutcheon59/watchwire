@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from watchwire.entropy import looks_high_entropy
+from watchwire.policy import ScanPolicy, default_policy
 
 # Skip binary-ish and huge files by extension / size.
 SKIP_EXTENSIONS = {
@@ -41,6 +42,7 @@ SKIP_EXTENSIONS = {
     ".avi",
     ".mov",
 }
+# Directory name short-circuit (still applied; policy globs add lockfiles etc.).
 SKIP_DIR_NAMES = {
     ".git",
     ".hg",
@@ -112,9 +114,10 @@ def _redact(match: str, keep: int = 4) -> str:
     return match[:keep] + "…" + match[-keep:]
 
 
-def _iter_text_files(root: Path) -> Iterator[Path]:
+def _iter_text_files(root: Path, policy: ScanPolicy) -> Iterator[Path]:
     if root.is_file():
-        yield root
+        if not policy.is_path_excluded(root, root=root.parent):
+            yield root
         return
     for path in root.rglob("*"):
         if not path.is_file():
@@ -122,6 +125,8 @@ def _iter_text_files(root: Path) -> Iterator[Path]:
         if any(part in SKIP_DIR_NAMES for part in path.parts):
             continue
         if path.suffix.lower() in SKIP_EXTENSIONS:
+            continue
+        if policy.is_path_excluded(path, root=root):
             continue
         try:
             if path.stat().st_size > MAX_FILE_BYTES:
@@ -131,11 +136,13 @@ def _iter_text_files(root: Path) -> Iterator[Path]:
         yield path
 
 
-def _scan_line(path: str, line_no: int, line: str) -> list[Finding]:
+def _scan_line(path: str, line_no: int, line: str, policy: ScanPolicy) -> list[Finding]:
     findings: list[Finding] = []
     seen_spans: set[tuple[int, int]] = set()
 
     for kind, pattern in SECRET_PATTERNS:
+        if not policy.is_rule_enabled(kind):
+            continue
         for m in pattern.finditer(line):
             span = m.span(1) if m.lastindex else m.span(0)
             if span in seen_spans:
@@ -151,41 +158,51 @@ def _scan_line(path: str, line_no: int, line: str) -> list[Finding]:
                 )
             )
 
-    for m in ENTROPY_CANDIDATE.finditer(line):
-        token = m.group(1)
-        span = m.span(1)
-        if span in seen_spans:
-            continue
-        # Skip if already matched a known pattern overlapping this span.
-        if any(s[0] <= span[0] < s[1] or s[0] < span[1] <= s[1] for s in seen_spans):
-            continue
-        if looks_high_entropy(token):
-            seen_spans.add(span)
-            findings.append(
-                Finding(
-                    path=path,
-                    line=line_no,
-                    kind="high_entropy",
-                    snippet=_redact(token),
+    if policy.is_rule_enabled("high_entropy"):
+        for m in ENTROPY_CANDIDATE.finditer(line):
+            token = m.group(1)
+            span = m.span(1)
+            if span in seen_spans:
+                continue
+            # Skip if already matched a known pattern overlapping this span.
+            if any(s[0] <= span[0] < s[1] or s[0] < span[1] <= s[1] for s in seen_spans):
+                continue
+            if looks_high_entropy(
+                token,
+                min_length=policy.min_entropy_length,
+                threshold=policy.min_entropy,
+            ):
+                seen_spans.add(span)
+                findings.append(
+                    Finding(
+                        path=path,
+                        line=line_no,
+                        kind="high_entropy",
+                        snippet=_redact(token),
+                    )
                 )
-            )
 
     return findings
 
 
-def scan_path(target: str | Path) -> list[Finding]:
+def scan_path(
+    target: str | Path,
+    *,
+    policy: ScanPolicy | None = None,
+) -> list[Finding]:
     """Scan *target* (file or directory) for leaked secrets. Local only."""
     root = Path(target).resolve()
     if not root.exists():
         raise FileNotFoundError(f"path not found: {root}")
 
+    pol = policy if policy is not None else default_policy()
     results: list[Finding] = []
-    for file_path in _iter_text_files(root):
+    for file_path in _iter_text_files(root, pol):
         try:
             text = file_path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
         rel = str(file_path)
         for line_no, line in enumerate(text.splitlines(), start=1):
-            results.extend(_scan_line(rel, line_no, line))
+            results.extend(_scan_line(rel, line_no, line, pol))
     return results
