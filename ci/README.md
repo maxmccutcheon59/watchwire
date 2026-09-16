@@ -1,7 +1,6 @@
-# CI workflow
+# CI
 
-Canonical GitHub Actions workflow lives at `.github/workflows/ci.yml`.
+Live workflow: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
 
-This directory mirrors the same YAML as `github-actions.yml` for reference if
-Actions workflow files cannot be pushed until the GitHub token has the
-`workflow` OAuth scope.
+Matrix: Python 3.10 / 3.12 / 3.13 — `ruff check` + `pytest`.
+`github-actions.yml` here is a mirror of that file for convenience.
