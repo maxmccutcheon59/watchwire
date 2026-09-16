@@ -1,0 +1,39 @@
+# Example: consumer repo wiring for the Watchwire composite action.
+# Copy into .github/workflows/ (adjust name/paths). Not Marketplace-published.
+#
+# Repo: https://github.com/maxmccutcheon59/watchwire
+# Pin @main or a tag/SHA for reproducibility.
+
+name: Watchwire secret scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  # Needed only if you upload SARIF to GitHub Code Scanning:
+  security-events: write
+
+jobs:
+  watchwire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan with Watchwire
+        id: ww
+        # Pin to a commit SHA or tag in real use; @main shown for illustration.
+        uses: maxmccutcheon59/watchwire@main
+        with:
+          path: "."
+          sarif-file: watchwire.sarif
+          fail-on-findings: "true"
+
+      - name: Upload SARIF to GitHub Code Scanning
+        if: success() || failure()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.ww.outputs.sarif-path }}
+          # wait-for-processing: true  # optional

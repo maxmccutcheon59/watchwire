@@ -1,0 +1,94 @@
+name: Watchwire Scan
+description: >
+  Local-first secret scan using Watchwire. Installs from this repository,
+  scans a path, optionally writes SARIF 2.1.0 for github/codeql-action/upload-sarif.
+  Does not claim GitHub Marketplace publication.
+
+inputs:
+  path:
+    description: Path (file or directory) to scan
+    required: false
+    default: "."
+  sarif-file:
+    description: >
+      If set, write SARIF 2.1.0 to this path (also exposed as outputs.sarif-path).
+      Leave empty to skip SARIF file output.
+    required: false
+    default: "watchwire.sarif"
+  fail-on-findings:
+    description: Fail the action step when findings are present (exit code 1)
+    required: false
+    default: "true"
+  python-version:
+    description: Python version for setup-python (used when setup-python is true)
+    required: false
+    default: "3.12"
+  setup-python:
+    description: Whether to run actions/setup-python before install
+    required: false
+    default: "true"
+
+outputs:
+  sarif-path:
+    description: Path to the SARIF file (empty if sarif-file input was empty)
+    value: ${{ steps.scan.outputs.sarif-path }}
+  finding-count:
+    description: Number of findings reported by the scan
+    value: ${{ steps.scan.outputs.finding-count }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      if: inputs.setup-python == 'true'
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install watchwire from action path
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install "${{ github.action_path }}"
+
+    - name: Run watchwire scan
+      id: scan
+      shell: bash
+      run: |
+        set +e
+        PATH_TO_SCAN='${{ inputs.path }}'
+        SARIF_FILE='${{ inputs.sarif-file }}'
+        FAIL='${{ inputs.fail-on-findings }}'
+
+        # JSON summary always (local artifact; used for finding-count).
+        watchwire scan "$PATH_TO_SCAN" --json -o watchwire-findings.json
+        RC=$?
+
+        if [ -f watchwire-findings.json ]; then
+          COUNT=$(python -c "import json; print(json.load(open('watchwire-findings.json'))['finding_count'])")
+        else
+          COUNT=0
+        fi
+        echo "finding-count=$COUNT" >> "$GITHUB_OUTPUT"
+
+        if [ -n "$SARIF_FILE" ]; then
+          watchwire scan "$PATH_TO_SCAN" --sarif -o "$SARIF_FILE"
+          SARIF_RC=$?
+          # Prefer SARIF run exit if it failed harder than JSON.
+          if [ "$SARIF_RC" -ge 2 ]; then
+            RC=$SARIF_RC
+          elif [ "$RC" -lt 2 ]; then
+            RC=$SARIF_RC
+          fi
+          echo "sarif-path=$SARIF_FILE" >> "$GITHUB_OUTPUT"
+        else
+          echo "sarif-path=" >> "$GITHUB_OUTPUT"
+        fi
+
+        if [ "$RC" -ge 2 ]; then
+          exit "$RC"
+        fi
+        if [ "$FAIL" = "true" ] && [ "$RC" -eq 1 ]; then
+          exit 1
+        fi
+        exit 0
