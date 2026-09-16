@@ -78,3 +78,18 @@ def test_high_entropy_detection(tmp_path: Path) -> None:
     blob.write_text("secret=Qk9GVVNBRkFLRUVYQU1QTEVTRUNSRVQwMTIzNDU2Nzg5YWJjZGVm\n")
     findings = scan_path(blob)
     assert any(f.kind in {"high_entropy", "generic_api_key_assignment"} for f in findings)
+
+
+def test_fixtures_directory_has_expected_kinds() -> None:
+    """Committed fixtures under tests/fixtures/ are scan-detectable (fake only)."""
+    fixtures = Path(__file__).resolve().parent / "fixtures"
+    findings = scan_path(fixtures)
+    kinds = {f.kind for f in findings}
+    assert "aws_access_key_id" in kinds
+    assert "github_token" in kinds
+    assert "github_fine_grained" in kinds
+    assert "private_key_header" in kinds
+    assert "slack_token" in kinds
+    # clean.txt must not poison the suite with a false positive alone
+    clean_hits = [f for f in findings if f.path.endswith("clean.txt")]
+    assert clean_hits == []

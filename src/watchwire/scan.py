@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
 
 from watchwire.entropy import looks_high_entropy
 
@@ -90,7 +90,7 @@ SECRET_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 ]
 
 # Candidate tokens for entropy pass (base64-ish / hex-ish runs).
-ENTROPY_CANDIDATE = re.compile(r"\b([A-Za-z0-9+/=_\-]{24,})\b")
+ENTROPY_CANDIDATE = re.compile(r"\b([A-Za-z0-9+/_\-]{24,}={0,2})\b")
 
 
 @dataclass(frozen=True)

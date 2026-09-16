@@ -1,5 +1,7 @@
 # Watchwire
 
+[![CI](https://github.com/maxmccutcheon59/watchwire/actions/workflows/ci.yml/badge.svg)](https://github.com/maxmccutcheon59/watchwire/actions/workflows/ci.yml)
+
 **Local-first defensive CLI** for catching leaked secrets, inspecting Linux processes, and spotting risky file permissions — without sending anything off-box.
 
 Built as a portfolio / internship project demonstrating practical defensive security tooling in pure Python (stdlib only at runtime).
@@ -17,13 +19,33 @@ Watchwire answers those questions **locally**: regex + entropy for secrets, `/pr
 ## Install
 
 ```bash
-# From source (recommended while evaluating)
 git clone https://github.com/maxmccutcheon59/watchwire.git
 cd watchwire
+python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
 Requires **Python 3.10+**. Runtime depends on the standard library only. The `proc` subcommand is Linux-oriented (`/proc`).
+
+---
+
+## 2-minute demo
+
+```bash
+# 1) Scan fixture tree (fake AKIA / ghp_ patterns only — never real secrets)
+watchwire scan tests/fixtures/
+# Expect exit code 1 and redacted findings like:
+#   …/aws.env:2: [aws_access_key_id] AKIA…0001
+
+# 2) Summarize processes (read-only /proc)
+watchwire proc
+watchwire proc 1          # detail one PID
+
+# 3) Permission hygiene under a tree
+watchwire hygiene .
+```
+
+Matches are **redacted** in output. `scan` / `hygiene` exit `1` if findings exist (CI-friendly); `0` if clean.
 
 ---
 
@@ -44,15 +66,6 @@ Detects (among others):
 | Private key PEM headers | `-----BEGIN … PRIVATE KEY-----` |
 | Slack tokens | `xoxb-…` |
 | High-entropy strings | long base64-ish runs |
-
-Matches are **redacted** in output. Exit code `1` if findings exist (CI-friendly); `0` if clean.
-
-```bash
-# Example (fake fixture values)
-$ watchwire scan tests/
-…/aws.env:1: [aws_access_key_id] AKIA…0000
-2 finding(s)
-```
 
 ### Process summary (`/proc`)
 
@@ -83,7 +96,9 @@ watchwire/
 │   ├── entropy.py    # Shannon entropy helper
 │   ├── proc.py       # /proc reader (proc_root injectable)
 │   └── hygiene.py    # permission bit checks
-├── tests/            # pytest; fake secrets + mocked /proc
+├── tests/
+│   ├── fixtures/     # fake AKIA/ghp_/PEM/Slack samples
+│   └── test_*.py
 └── .github/workflows/ci.yml
 ```
 
@@ -92,7 +107,7 @@ watchwire/
 - **Local-only**: no HTTP clients, no telemetry, no cloud API keys.
 - **Injectable `/proc` root**: tests use a fake tree; production uses `/proc`.
 - **Redaction**: findings print truncated snippets, not full secrets.
-- **Stdlib runtime**: easy to audit; optional `pytest` only for development.
+- **Stdlib runtime**: easy to audit; optional `pytest` / `ruff` only for development.
 
 ---
 
@@ -112,10 +127,11 @@ If you need enterprise secret scanning in CI at scale, evaluate established tool
 
 ```bash
 pip install -e ".[dev]"
+ruff check src tests
 pytest -v
 ```
 
-CI runs on Python 3.10–3.13 via GitHub Actions.
+CI runs on Python 3.10 / 3.12 / 3.13 via GitHub Actions.
 
 ---
 
