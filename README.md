@@ -79,13 +79,31 @@ Detects (among others):
 
 ### Policy file (`watchwire.toml`)
 
-Optional local policy — foundation for later team policy packs. Loaded from
-`./watchwire.toml` in the current working directory, or via `--config PATH`.
+Optional local policy. Loaded from `./watchwire.toml` in the current working
+directory, or via `--config PATH`.
 
 ```bash
 watchwire scan ./my-project
 watchwire scan ./my-project --config ./examples/watchwire.toml
 ```
+
+#### Example policy packs
+
+Ready-to-use packs live under [`examples/policies/`](examples/policies/):
+
+| Pack | File | Fit |
+|------|------|-----|
+| Student | `student.toml` | Aggressive excludes for course / homework repos |
+| Indie | `indie.toml` | Balanced for small personal projects |
+| Small team | `small-team.toml` | Stricter entropy, fewer excludes |
+
+```bash
+watchwire scan . --config examples/policies/indie.toml
+watchwire scan . --config examples/policies/student.toml
+watchwire scan . --config examples/policies/small-team.toml
+```
+
+Copy a pack to `./watchwire.toml` or keep pointing `--config` at it.
 
 Example schema (see also [`examples/watchwire.toml`](examples/watchwire.toml)):
 
@@ -149,7 +167,7 @@ In another repo’s `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/maxmccutcheon59/watchwire
-    rev: v0.3.0   # or a commit SHA
+    rev: v0.4.0   # or a commit SHA
     hooks:
       - id: watchwire-scan
 ```
@@ -165,11 +183,12 @@ Root [`action.yml`](action.yml) installs Watchwire from this repo and runs `scan
 
 - name: Scan with Watchwire
   id: ww
-  uses: maxmccutcheon59/watchwire@v0.3.0   # pin tag or SHA
+  uses: maxmccutcheon59/watchwire@v0.4.0   # pin tag or SHA
   with:
     path: "."
     sarif-file: watchwire.sarif
     fail-on-findings: "true"
+    run-hygiene: "false"   # set "true" to also run `watchwire hygiene`
 
 - name: Upload SARIF (optional)
   if: success() || failure()
@@ -177,6 +196,10 @@ Root [`action.yml`](action.yml) installs Watchwire from this repo and runs `scan
   with:
     sarif_file: ${{ steps.ww.outputs.sarif-path }}
 ```
+
+Optional `run-hygiene: true` runs `watchwire hygiene` on the same path after
+the secret scan (writes `watchwire-hygiene.json`). Default is `false` so
+existing scan / SARIF wiring stays unchanged.
 
 Requires `permissions: security-events: write` for Code Scanning upload. **Not** published to the GitHub Marketplace yet — use `uses: maxmccutcheon59/watchwire@…` directly.
 
@@ -194,11 +217,12 @@ Requires `permissions: security-events: write` for Code Scanning upload. **Not**
 
 ```
 watchwire/
-├── action.yml                 # composite GitHub Action (scan + optional SARIF)
+├── action.yml                 # composite Action (scan + optional SARIF / hygiene)
 ├── .pre-commit-hooks.yaml     # reusable pre-commit hook definition
 ├── examples/
 │   ├── github-action-scan.yml
-│   └── watchwire.toml         # example policy file
+│   ├── watchwire.toml         # example policy file
+│   └── policies/              # student / indie / small-team packs
 ├── CHANGELOG.md
 ├── src/watchwire/
 │   ├── cli.py        # argparse entry; subcommands only
@@ -221,7 +245,7 @@ watchwire/
 - **Redaction**: findings print truncated snippets, not full secrets.
 - **Stdlib runtime**: easy to audit; optional `pytest` / `ruff` only for development.
 - **CI-friendly**: JSON/SARIF, pre-commit, and a composite Action — still no off-box exfiltration by the tool itself.
-- **Policy file**: optional `watchwire.toml` for path globs and rule toggles (local OSS; team packs later).
+- **Policy file**: optional `watchwire.toml` for path globs and rule toggles; example packs under `examples/policies/`.
 
 ---
 

@@ -1,0 +1,23 @@
+# Policy pack: small-team — stricter rules, fewer excludes.
+# Use: watchwire scan . --config examples/policies/small-team.toml
+#
+# Intended for shared repos where false negatives matter more than
+# occasional entropy noise. Minimal extra path skips; lower entropy bar.
+
+[scan]
+# Only skip obvious generated noise — review the rest.
+exclude = [
+  "**/dist/**",
+  "**/*.min.js",
+]
+min_entropy = 4.2
+min_entropy_length = 16
+
+[rules]
+aws_access_key_id = true
+github_token = true
+github_fine_grained = true
+private_key_header = true
+slack_token = true
+generic_api_key_assignment = true
+high_entropy = true

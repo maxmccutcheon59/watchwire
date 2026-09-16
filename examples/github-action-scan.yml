@@ -25,11 +25,13 @@ jobs:
       - name: Scan with Watchwire
         id: ww
         # Pin to a commit SHA or tag in real use; @main shown for illustration.
-        uses: maxmccutcheon59/watchwire@main
+        uses: maxmccutcheon59/watchwire@v0.4.0
         with:
           path: "."
           sarif-file: watchwire.sarif
           fail-on-findings: "true"
+          # Optional: also run `watchwire hygiene` on the same path (default false)
+          run-hygiene: "false"
 
       - name: Upload SARIF to GitHub Code Scanning
         if: success() || failure()

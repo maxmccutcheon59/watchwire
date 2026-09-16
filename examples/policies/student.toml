@@ -1,0 +1,41 @@
+# Policy pack: student — aggressive excludes for course / homework repos.
+# Use: watchwire scan . --config examples/policies/student.toml
+#
+# Course trees often ship vendor copies, datasets, notebooks, and lecture
+# assets that inflate entropy noise. Keep core credential rules on; raise
+# entropy thresholds and skip noisy paths.
+
+[scan]
+exclude = [
+  "**/vendor/**",
+  "**/third_party/**",
+  "**/third-party/**",
+  "**/dist/**",
+  "**/build/**",
+  "**/out/**",
+  "**/.next/**",
+  "**/coverage/**",
+  "**/__MACOSX/**",
+  "**/*.min.js",
+  "**/*.min.css",
+  "**/*.ipynb",
+  "**/datasets/**",
+  "**/data/raw/**",
+  "**/lecture*/**",
+  "**/slides/**",
+  "**/handouts/**",
+  "**/solutions/**",
+  "**/starter_code/**",
+  "**/node_modules/**",
+]
+min_entropy = 5.0
+min_entropy_length = 24
+
+[rules]
+aws_access_key_id = true
+github_token = true
+github_fine_grained = true
+private_key_header = true
+slack_token = true
+generic_api_key_assignment = true
+high_entropy = true

@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-09-16
+
+### Added
+
+- Example **policy packs** under `examples/policies/`:
+  - `student.toml` — aggressive excludes for course / homework repos
+  - `indie.toml` — balanced defaults for small personal projects
+  - `small-team.toml` — stricter entropy / fewer excludes for shared repos
+- Optional composite Action input `run-hygiene` (default `false`): when `true`,
+  runs `watchwire hygiene` on the same path after the secret scan and writes
+  `watchwire-hygiene.json`. Scan / SARIF behavior unchanged when left false.
+
+### Changed
+
+- Version bump to 0.4.0. Pre-commit / Action pin examples recommend `v0.4.0`.
+- Package metadata author email set to `MaxMcCutcheon1@outlook.com`.
+
 ## [0.3.0] - 2026-09-16
 
 ### Added
@@ -39,5 +56,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - OSS core stays local-first: no SaaS, telemetry, or Marketplace listing claims.
 
+[0.4.0]: https://github.com/maxmccutcheon59/watchwire/releases/tag/v0.4.0
 [0.3.0]: https://github.com/maxmccutcheon59/watchwire/releases/tag/v0.3.0
 [0.2.0]: https://github.com/maxmccutcheon59/watchwire/releases/tag/v0.2.0

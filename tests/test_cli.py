@@ -46,8 +46,10 @@ def test_hygiene_cli(tmp_path: Path, capsys) -> None:
 
 
 def test_version(capsys) -> None:
+    from watchwire import __version__
+
     try:
         main(["--version"])
     except SystemExit as e:
         assert e.code == 0
-    assert "0.3.0" in capsys.readouterr().out
+    assert __version__ in capsys.readouterr().out

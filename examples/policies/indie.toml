@@ -1,0 +1,26 @@
+# Policy pack: indie — balanced defaults for small personal projects.
+# Use: watchwire scan . --config examples/policies/indie.toml
+#
+# Keeps built-in lockfile/vendor excludes, adds common build artifacts,
+# and leaves all rule kinds enabled at stock entropy thresholds.
+
+[scan]
+exclude = [
+  "**/vendor/**",
+  "**/dist/**",
+  "**/build/**",
+  "**/.next/**",
+  "**/coverage/**",
+  "**/*.min.js",
+]
+min_entropy = 4.5
+min_entropy_length = 20
+
+[rules]
+aws_access_key_id = true
+github_token = true
+github_fine_grained = true
+private_key_header = true
+slack_token = true
+generic_api_key_assignment = true
+high_entropy = true

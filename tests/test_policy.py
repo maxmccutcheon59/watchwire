@@ -136,3 +136,72 @@ def test_unknown_rule_raises(tmp_path: Path) -> None:
 def test_policy_from_dict_min_entropy_length() -> None:
     pol = policy_from_dict({"scan": {"min_entropy_length": 32}})
     assert pol.min_entropy_length == 32
+
+
+# --- Example policy packs (examples/policies/) ---
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_POLICY_PACK_DIR = _REPO_ROOT / "examples" / "policies"
+_POLICY_PACKS = ("student.toml", "indie.toml", "small-team.toml")
+
+
+@pytest.mark.parametrize("name", _POLICY_PACKS)
+def test_example_policy_pack_loads(name: str) -> None:
+    """Each shipped pack must parse and produce a usable ScanPolicy."""
+    path = _POLICY_PACK_DIR / name
+    assert path.is_file(), f"missing policy pack: {path}"
+    pol = load_policy(path)
+    assert pol.config_path == path
+    assert pol.exclude  # defaults + pack extras (or pack-only)
+    assert pol.min_entropy > 0
+    assert pol.min_entropy_length >= 1
+    # Core credential rules stay enabled in all packs
+    for kind in (
+        "aws_access_key_id",
+        "github_token",
+        "private_key_header",
+        "high_entropy",
+    ):
+        assert pol.is_rule_enabled(kind) is True
+
+
+def test_student_pack_is_aggressive() -> None:
+    pol = load_policy(_POLICY_PACK_DIR / "student.toml")
+    # Aggressive excludes + raised entropy bar vs indie
+    assert any("datasets" in g or "solutions" in g for g in pol.exclude)
+    assert pol.min_entropy >= 5.0
+    assert pol.min_entropy_length >= 24
+
+
+def test_indie_pack_is_balanced() -> None:
+    pol = load_policy(_POLICY_PACK_DIR / "indie.toml")
+    assert pol.min_entropy == 4.5
+    assert pol.min_entropy_length == 20
+    assert "**/node_modules/**" in pol.exclude  # defaults kept
+    assert any("dist" in g for g in pol.exclude)
+
+
+def test_small_team_pack_is_stricter() -> None:
+    pol = load_policy(_POLICY_PACK_DIR / "small-team.toml")
+    indie = load_policy(_POLICY_PACK_DIR / "indie.toml")
+    # Fewer pack-specific excludes than student; stricter entropy than indie
+    student = load_policy(_POLICY_PACK_DIR / "student.toml")
+    assert len(pol.exclude) < len(student.exclude)
+    assert pol.min_entropy < indie.min_entropy
+    assert pol.min_entropy_length < indie.min_entropy_length
+
+
+def test_cli_scan_with_indie_pack(tmp_path: Path, capsys) -> None:
+    leak = tmp_path / "aws.env"
+    leak.write_text("AWS_ACCESS_KEY_ID=AKIAEXAMPLEKEY000001\n")
+    code = main(
+        [
+            "scan",
+            str(tmp_path),
+            "--config",
+            str(_POLICY_PACK_DIR / "indie.toml"),
+        ]
+    )
+    assert code == 1
+    out = capsys.readouterr().out
+    assert "aws_access_key_id" in out
