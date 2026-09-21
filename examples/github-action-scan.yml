@@ -25,7 +25,7 @@ jobs:
       - name: Scan with Watchwire
         id: ww
         # Pin to a commit SHA or tag in real use; @main shown for illustration.
-        uses: maxmccutcheon59/watchwire@v0.4.0
+        uses: maxmccutcheon59/watchwire@v0.5.0
         with:
           path: "."
           sarif-file: watchwire.sarif

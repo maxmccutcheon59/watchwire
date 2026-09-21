@@ -9,6 +9,7 @@ from pathlib import Path
 
 from watchwire import __version__
 from watchwire.hygiene import check_hygiene
+from watchwire.ignore import STARTER_WATCHWIREIGNORE, resolve_ignore
 from watchwire.output import (
     dumps_json,
     dumps_sarif,
@@ -19,7 +20,42 @@ from watchwire.output import (
 )
 from watchwire.policy import ScanPolicy, resolve_policy
 from watchwire.proc import list_pids, summarize_pid
-from watchwire.scan import Finding, scan_path
+from watchwire.scan import Finding, scan_files, scan_path
+from watchwire.staged import StagedError, filter_staged_under, list_staged_files
+from watchwire.suppressions import (
+    STARTER_SUPPRESSIONS,
+    apply_suppressions,
+    resolve_suppressions,
+)
+
+STARTER_WATCHWIRE_TOML = """\
+# watchwire.toml — local scan policy (created by `watchwire init`).
+# Loaded automatically from the current working directory, or via --config PATH.
+# Docs: README → Sellable v1 / Policy file.
+
+[scan]
+# Extra globs on top of built-in defaults (node_modules, *.lock, poetry.lock, …).
+# Set use_default_excludes = false to replace defaults entirely.
+exclude = [
+  "**/vendor/**",
+  "**/dist/**",
+  "**/*.min.js",
+]
+# use_default_excludes = true
+min_entropy = 4.5
+min_entropy_length = 20
+
+[rules]
+# Pattern toggles — set false to disable a kind.
+aws_access_key_id = true
+github_token = true
+github_fine_grained = true
+private_key_header = true
+slack_token = true
+generic_api_key_assignment = true
+# "entropy" is an alias for high_entropy
+high_entropy = true
+"""
 
 
 def _emit(text: str, output: Path | None) -> None:
@@ -29,10 +65,15 @@ def _emit(text: str, output: Path | None) -> None:
         sys.stdout.write(text)
 
 
-def _scan_paths(paths: list[Path], policy: ScanPolicy) -> list[Finding]:
+def _scan_paths(
+    paths: list[Path],
+    policy: ScanPolicy,
+    *,
+    ignore=None,
+) -> list[Finding]:
     findings: list[Finding] = []
     for path in paths:
-        findings.extend(scan_path(path, policy=policy))
+        findings.extend(scan_path(path, policy=policy, ignore=ignore))
     return findings
 
 
@@ -57,15 +98,57 @@ def _load_scan_policy(args: argparse.Namespace) -> ScanPolicy:
         raise SystemExit(2) from exc
 
 
-def _cmd_scan(args: argparse.Namespace) -> int:
-    paths: list[Path] = args.paths
-    path_label = str(paths[0]) if len(paths) == 1 else f"{len(paths)} paths"
-    policy = _load_scan_policy(args)
+def _load_ignore(args: argparse.Namespace, scan_root: Path | None = None):
     try:
-        findings = _scan_paths(paths, policy)
+        return resolve_ignore(
+            ignore_file=getattr(args, "ignore_file", None),
+            scan_root=scan_root,
+        )
+    except FileNotFoundError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        raise SystemExit(2) from exc
+
+
+def _load_suppressions(args: argparse.Namespace):
+    try:
+        return resolve_suppressions(suppressions=getattr(args, "suppressions", None))
+    except FileNotFoundError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        raise SystemExit(2) from exc
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        raise SystemExit(2) from exc
+
+
+def _cmd_scan(args: argparse.Namespace) -> int:
+    paths: list[Path] = list(args.paths) if args.paths else [Path(".")]
+    policy = _load_scan_policy(args)
+    suppressions = _load_suppressions(args)
+
+    scan_root = paths[0] if paths else Path(".")
+    ignore = _load_ignore(args, scan_root=scan_root)
+
+    try:
+        if getattr(args, "staged", False):
+            staged = list_staged_files()
+            files = filter_staged_under(staged, paths)
+            if not files:
+                path_label = "staged (none)"
+                findings: list[Finding] = []
+            else:
+                path_label = f"{len(files)} staged file(s)"
+                findings = scan_files(files, policy=policy, ignore=ignore)
+        else:
+            path_label = str(paths[0]) if len(paths) == 1 else f"{len(paths)} paths"
+            findings = _scan_paths(paths, policy, ignore=ignore)
     except FileNotFoundError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
+    except StagedError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    findings = apply_suppressions(findings, suppressions)
 
     fmt = _resolve_scan_format(args)
     output: Path | None = getattr(args, "output", None)
@@ -88,6 +171,43 @@ def _cmd_scan(args: argparse.Namespace) -> int:
             print(f"\n{len(findings)} finding(s)")
 
     return 1 if findings else 0
+
+
+def _cmd_init(args: argparse.Namespace) -> int:
+    """Write starter watchwire.toml + .watchwireignore (+ optional suppressions)."""
+    dest = Path(args.directory).resolve() if args.directory else Path.cwd().resolve()
+    if not dest.is_dir():
+        print(f"error: not a directory: {dest}", file=sys.stderr)
+        return 2
+
+    force = bool(args.force)
+    targets = [
+        (dest / "watchwire.toml", STARTER_WATCHWIRE_TOML),
+        (dest / ".watchwireignore", STARTER_WATCHWIREIGNORE),
+    ]
+    if args.with_suppressions:
+        targets.append((dest / "watchwire.suppressions.toml", STARTER_SUPPRESSIONS))
+
+    wrote = 0
+    for path, content in targets:
+        if path.exists() and not force:
+            print(f"skip (exists): {path}")
+            continue
+        path.write_text(content, encoding="utf-8")
+        print(f"wrote: {path}")
+        wrote += 1
+
+    if wrote == 0:
+        print(
+            "Nothing written (files already exist). Re-run with --force to overwrite.",
+            file=sys.stderr,
+        )
+        return 0
+    print(
+        "Next: review watchwire.toml / .watchwireignore, then "
+        "`watchwire scan .` (or `watchwire scan --staged` in a git repo)."
+    )
+    return 0
 
 
 def _cmd_proc(args: argparse.Namespace) -> int:
@@ -162,10 +282,18 @@ def build_parser() -> argparse.ArgumentParser:
     scan_p = sub.add_parser("scan", help="Detect leaked secrets under PATH (local only)")
     scan_p.add_argument(
         "paths",
-        nargs="+",
+        nargs="*",
         type=Path,
         metavar="PATH",
-        help="File(s) or directory(ies) to scan",
+        help="File(s) or directory(ies) to scan (default: .)",
+    )
+    scan_p.add_argument(
+        "--staged",
+        action="store_true",
+        help=(
+            "Scan only git staged files (local git diff --cached; no network). "
+            "Requires a git work tree."
+        ),
     )
     scan_p.add_argument(
         "--config",
@@ -174,6 +302,23 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="PATH",
         help="Path to watchwire.toml (default: ./watchwire.toml if present)",
+    )
+    scan_p.add_argument(
+        "--ignore-file",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="Path to .watchwireignore (default: ./.watchwireignore if present)",
+    )
+    scan_p.add_argument(
+        "--suppressions",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help=(
+            "Path to watchwire.suppressions.toml (default: ./watchwire.suppressions.toml "
+            "if present). Path+rule allowlist — see COMPLIANCE_NOTES.md abuse risk."
+        ),
     )
     scan_p.add_argument(
         "--json",
@@ -205,6 +350,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write machine-readable output to FILE instead of stdout",
     )
     scan_p.set_defaults(func=_cmd_scan)
+
+    init_p = sub.add_parser(
+        "init",
+        help="Write starter watchwire.toml and .watchwireignore into a directory",
+    )
+    init_p.add_argument(
+        "directory",
+        nargs="?",
+        type=Path,
+        default=None,
+        help="Target directory (default: current working directory)",
+    )
+    init_p.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing starter files",
+    )
+    init_p.add_argument(
+        "--with-suppressions",
+        action="store_true",
+        help="Also write a commented watchwire.suppressions.toml starter",
+    )
+    init_p.set_defaults(func=_cmd_init)
 
     proc_p = sub.add_parser("proc", help="Summarize Linux /proc entry for PID (or list all)")
     proc_p.add_argument(

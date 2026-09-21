@@ -8,6 +8,67 @@ Built as a portfolio / internship project demonstrating practical defensive secu
 
 ---
 
+## Sellable v1 (5-minute CI install)
+
+Watchwire v0.5.0 is the first **sellable OSS layer** for founders who want local-first
+secret scanning in CI without a SaaS bill or telemetry. Pin a release tag — no Marketplace
+listing required.
+
+### 1) Init policy files (optional but recommended)
+
+```bash
+pip install "git+https://github.com/maxmccutcheon59/watchwire.git@v0.5.0"
+watchwire init                 # writes watchwire.toml + .watchwireignore
+# watchwire init --with-suppressions   # also writes watchwire.suppressions.toml (commented)
+watchwire scan .
+watchwire scan --staged        # git staged files only (local git; no network)
+```
+
+### 2) GitHub Actions (copy-paste)
+
+Use the composite Action pinned to **`@v0.5.0`** (template also under [`ci/consumer-scan.yml`](ci/consumer-scan.yml)):
+
+```yaml
+- uses: actions/checkout@v4
+
+- name: Scan with Watchwire
+  id: ww
+  uses: maxmccutcheon59/watchwire@v0.5.0
+  with:
+    path: "."
+    sarif-file: watchwire.sarif
+    fail-on-findings: "true"
+
+- name: Upload SARIF (optional)
+  if: success() || failure()
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: ${{ steps.ww.outputs.sarif-path }}
+```
+
+### 3) Pre-commit
+
+```yaml
+repos:
+  - repo: https://github.com/maxmccutcheon59/watchwire
+    rev: v0.5.0
+    hooks:
+      - id: watchwire-scan
+```
+
+### Sellable v1 surface
+
+| Feature | What it does |
+|---------|----------------|
+| `.watchwireignore` | gitignore-style path skips (local file) |
+| `watchwire init` | starter `watchwire.toml` + `.watchwireignore` |
+| `watchwire scan --staged` | only git staged files (`git diff --cached`; no network) |
+| `watchwire.suppressions.toml` | path + rule-id allowlist for noisy repos (**abuse risk** — see COMPLIANCE_NOTES) |
+| JSON / SARIF / Action / pre-commit | CI wiring from earlier releases |
+
+**Not claimed:** SaaS product, paid traction, Marketplace publication, or remote scanning.
+
+
 ## The problem
 
 Credentials and private keys still leak into repos, config dumps, and scratch files. Operators also need quick answers about “what is this process doing?” and “are there world-writable or setuid files under this tree?” — without installing a heavyweight agent or shipping filesystem contents to a SaaS scanner.
@@ -75,6 +136,50 @@ Detects (among others):
 | Private key PEM headers | `-----BEGIN … PRIVATE KEY-----` |
 | Slack tokens | `xoxb-…` |
 | High-entropy strings | long base64-ish runs |
+
+
+### Init starter files
+
+```bash
+watchwire init                 # cwd: watchwire.toml + .watchwireignore
+watchwire init ./my-app        # target directory
+watchwire init --force         # overwrite
+watchwire init --with-suppressions
+```
+
+### `.watchwireignore` (gitignore-style)
+
+Place a [`.watchwireignore`](examples/.watchwireignore) at the repo root (or pass
+`--ignore-file PATH`). Syntax mirrors `.gitignore`: `#` comments, `!` negation,
+trailing `/` for directories, `*` / `**` globs. Loaded automatically from the
+current working directory when present. Combined with `[scan].exclude` in
+`watchwire.toml`.
+
+### Staged-only scan
+
+```bash
+watchwire scan --staged        # all staged files in this git repo
+watchwire scan --staged ./src  # staged files under ./src only
+```
+
+Uses local `git diff --cached` only (no remotes, no network). Exit `2` if not a
+git work tree or git is missing.
+
+### Suppressions (path + rule allowlist)
+
+Optional [`watchwire.suppressions.toml`](examples/suppressions/watchwire.suppressions.toml)
+(or `--suppressions PATH`):
+
+```toml
+[[suppress]]
+path = "docs/examples/demo.env"
+rule = "aws_access_key_id"
+reason = "synthetic demo credential; reviewed 2026-09-21"
+```
+
+`rule` may be a finding kind or `"*"`. **Abuse risk:** suppressions can hide real
+secrets — document reasons, review in PRs, prefer excludes/fixes first. See
+[`COMPLIANCE_NOTES.md`](COMPLIANCE_NOTES.md).
 
 
 ### Policy file (`watchwire.toml`)
@@ -167,7 +272,7 @@ In another repo’s `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/maxmccutcheon59/watchwire
-    rev: v0.4.0   # or a commit SHA
+    rev: v0.5.0   # or a commit SHA
     hooks:
       - id: watchwire-scan
 ```
@@ -183,7 +288,7 @@ Root [`action.yml`](action.yml) installs Watchwire from this repo and runs `scan
 
 - name: Scan with Watchwire
   id: ww
-  uses: maxmccutcheon59/watchwire@v0.4.0   # pin tag or SHA
+  uses: maxmccutcheon59/watchwire@v0.5.0   # pin tag or SHA
   with:
     path: "."
     sarif-file: watchwire.sarif
@@ -219,21 +324,29 @@ Requires `permissions: security-events: write` for Code Scanning upload. **Not**
 watchwire/
 ├── action.yml                 # composite Action (scan + optional SARIF / hygiene)
 ├── .pre-commit-hooks.yaml     # reusable pre-commit hook definition
+├── ci/
+│   ├── consumer-scan.yml      # 5-min consumer CI template (@v0.5.0)
+│   └── security-ci.yml        # gitleaks + pip-audit reference jobs
 ├── examples/
 │   ├── github-action-scan.yml
-│   ├── watchwire.toml         # example policy file
+│   ├── .watchwireignore
+│   ├── watchwire.toml
+│   ├── suppressions/          # example suppressions TOML
 │   └── policies/              # student / indie / small-team packs
 ├── CHANGELOG.md
 ├── src/watchwire/
-│   ├── cli.py        # argparse entry; subcommands only
-│   ├── scan.py       # walk tree → regex patterns + entropy
-│   ├── policy.py     # watchwire.toml loader (globs + rule toggles)
-│   ├── output.py     # JSON + SARIF 2.1.0 serializers
-│   ├── entropy.py    # Shannon entropy + known FP filters
-│   ├── proc.py       # /proc reader (proc_root injectable)
-│   └── hygiene.py    # permission bit checks
+│   ├── cli.py           # scan / init / proc / hygiene
+│   ├── scan.py          # walk tree → regex + entropy
+│   ├── ignore.py        # .watchwireignore (gitignore-style)
+│   ├── suppressions.py  # path + rule allowlist
+│   ├── staged.py        # git staged file list (local only)
+│   ├── policy.py        # watchwire.toml loader
+│   ├── output.py        # JSON + SARIF 2.1.0
+│   ├── entropy.py       # Shannon + FP filters
+│   ├── proc.py          # /proc reader
+│   └── hygiene.py       # permission bit checks
 ├── tests/
-│   ├── fixtures/     # fake secrets + fp/ (must stay clean)
+│   ├── fixtures/        # fake secrets + fp/ (must stay clean)
 │   └── test_*.py
 └── .github/workflows/ci.yml
 ```
@@ -246,6 +359,8 @@ watchwire/
 - **Stdlib runtime**: easy to audit; optional `pytest` / `ruff` only for development.
 - **CI-friendly**: JSON/SARIF, pre-commit, and a composite Action — still no off-box exfiltration by the tool itself.
 - **Policy file**: optional `watchwire.toml` for path globs and rule toggles; example packs under `examples/policies/`.
+- **Ignore + suppressions**: `.watchwireignore` (gitignore-style) and optional path+rule suppressions file; staged-only scan via local git.
+- **Init**: `watchwire init` writes starter policy/ignore files for new repos.
 
 ---
 

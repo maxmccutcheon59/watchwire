@@ -1,0 +1,36 @@
+# 5-minute consumer CI template — copy into YOUR repo as
+# .github/workflows/watchwire.yml (or merge into an existing workflow).
+# Pin @v0.5.0 (or a commit SHA). Not Marketplace-published; no SaaS.
+#
+# Repo: https://github.com/maxmccutcheon59/watchwire
+
+name: Watchwire scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  security-events: write  # only needed for SARIF upload
+
+jobs:
+  watchwire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan with Watchwire
+        id: ww
+        uses: maxmccutcheon59/watchwire@v0.5.0
+        with:
+          path: "."
+          sarif-file: watchwire.sarif
+          fail-on-findings: "true"
+
+      - name: Upload SARIF (optional)
+        if: success() || failure()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.ww.outputs.sarif-path }}

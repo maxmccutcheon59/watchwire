@@ -1,0 +1,18 @@
+# Example suppressions file (OSS). Copy to repo root as watchwire.suppressions.toml
+# or pass --suppressions PATH.
+#
+# ABUSE RISK: suppressions can hide REAL secrets. Prefer fixing the leak,
+# narrowing .watchwireignore / [scan].exclude, or disabling a rule in
+# watchwire.toml only when justified. Review every entry in PRs. See
+# COMPLIANCE_NOTES.md.
+
+# Example (commented — for documentation only; do not enable blindly):
+# [[suppress]]
+# path = "docs/examples/demo.env"
+# rule = "aws_access_key_id"
+# reason = "synthetic demo credential; reviewed 2026-09-21"
+
+# [[suppress]]
+# path = "tests/fixtures/**"
+# rule = "*"
+# reason = "intentional synthetic fixtures only"

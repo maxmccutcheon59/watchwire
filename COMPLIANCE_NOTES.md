@@ -39,8 +39,35 @@ Unauthorized use against third-party systems can implicate the CFAA and related 
 - Report-only / defensive checks; no exploit payloads, privilege escalation, or unauthorized access features.
 - Fixture secrets in tests (if any) are **synthetic** and must never be real credentials.
 
+## Suppressions allowlist — abuse risk
+
+`watchwire.suppressions.toml` (and `--suppressions`) is a **path + rule-id allowlist**.
+Matched findings are dropped from the report and do not fail CI.
+
+**Risks**
+
+- Operators (or a malicious PR) can suppress **real** secrets by adding broad
+  entries such as `path = "**"` / `rule = "*"` or silencing high-value rules
+  (`private_key_header`, `aws_access_key_id`, token kinds).
+- Suppressions are not a substitute for rotating exposed credentials.
+- Unlike `.watchwireignore` (skip reading a path) or `[scan].exclude`, suppressions
+  imply “we looked and accept this hit” — that claim can be false if entries are
+  rubber-stamped.
+
+**Required practice (operators)**
+
+1. Prefer fixing the leak, rotating credentials, or narrowing excludes/ignores.
+2. Every `[[suppress]]` row should include a human `reason` and a review date.
+3. Require PR review for changes to suppressions / ignore / policy files.
+4. Never commit real secrets “under” a suppression; fixtures must stay synthetic.
+5. Treat suppressions as temporary debt — revisit and delete when possible.
+
+Flag for human / lawyer review before organizational mandates that rely on
+suppressions as an acceptance control.
+
 ## Items needing human review before commercial use
 
 - [ ] Privacy Policy / Terms if a hosted or multi-user product is built on top of this CLI
 - [ ] Organizational acceptable-use policy alignment for internal deployment
 - [ ] Any future network features (webhooks, SaaS upload) — would require fresh threat model + privacy review
+- [ ] Organizational policy for suppressions / ignore governance (who may approve allowlist entries)

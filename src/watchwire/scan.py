@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from watchwire.entropy import looks_high_entropy
+from watchwire.ignore import IgnoreMatcher
 from watchwire.policy import ScanPolicy, default_policy
 
 # Skip binary-ish and huge files by extension / size.
@@ -114,24 +115,44 @@ def _redact(match: str, keep: int = 4) -> str:
     return match[:keep] + "…" + match[-keep:]
 
 
-def _iter_text_files(root: Path, policy: ScanPolicy) -> Iterator[Path]:
+def _is_skipped(
+    path: Path,
+    *,
+    root: Path,
+    policy: ScanPolicy,
+    ignore: IgnoreMatcher | None,
+) -> bool:
+    if any(part in SKIP_DIR_NAMES for part in path.parts):
+        return True
+    if path.suffix.lower() in SKIP_EXTENSIONS:
+        return True
+    if policy.is_path_excluded(path, root=root):
+        return True
+    if ignore is not None and ignore.is_ignored(path):
+        return True
+    try:
+        if path.stat().st_size > MAX_FILE_BYTES:
+            return True
+    except OSError:
+        return True
+    return False
+
+
+def _iter_text_files(
+    root: Path,
+    policy: ScanPolicy,
+    *,
+    ignore: IgnoreMatcher | None = None,
+) -> Iterator[Path]:
     if root.is_file():
-        if not policy.is_path_excluded(root, root=root.parent):
+        parent = root.parent
+        if not _is_skipped(root, root=parent, policy=policy, ignore=ignore):
             yield root
         return
     for path in root.rglob("*"):
         if not path.is_file():
             continue
-        if any(part in SKIP_DIR_NAMES for part in path.parts):
-            continue
-        if path.suffix.lower() in SKIP_EXTENSIONS:
-            continue
-        if policy.is_path_excluded(path, root=root):
-            continue
-        try:
-            if path.stat().st_size > MAX_FILE_BYTES:
-                continue
-        except OSError:
+        if _is_skipped(path, root=root, policy=policy, ignore=ignore):
             continue
         yield path
 
@@ -189,6 +210,7 @@ def scan_path(
     target: str | Path,
     *,
     policy: ScanPolicy | None = None,
+    ignore: IgnoreMatcher | None = None,
 ) -> list[Finding]:
     """Scan *target* (file or directory) for leaked secrets. Local only."""
     root = Path(target).resolve()
@@ -197,12 +219,39 @@ def scan_path(
 
     pol = policy if policy is not None else default_policy()
     results: list[Finding] = []
-    for file_path in _iter_text_files(root, pol):
+    for file_path in _iter_text_files(root, pol, ignore=ignore):
         try:
             text = file_path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
         rel = str(file_path)
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            results.extend(_scan_line(rel, line_no, line, pol))
+    return results
+
+
+def scan_files(
+    files: list[Path],
+    *,
+    policy: ScanPolicy | None = None,
+    ignore: IgnoreMatcher | None = None,
+    root: Path | None = None,
+) -> list[Finding]:
+    """Scan an explicit file list (e.g. git staged paths). Local only."""
+    pol = policy if policy is not None else default_policy()
+    base = root if root is not None else Path.cwd()
+    results: list[Finding] = []
+    for file_path in files:
+        path = Path(file_path).resolve()
+        if not path.is_file():
+            continue
+        if _is_skipped(path, root=base, policy=pol, ignore=ignore):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        rel = str(path)
         for line_no, line in enumerate(text.splitlines(), start=1):
             results.extend(_scan_line(rel, line_no, line, pol))
     return results

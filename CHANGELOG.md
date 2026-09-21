@@ -5,6 +5,35 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-09-21
+
+### Added
+
+- **`.watchwireignore`** — gitignore-style path skips (`#` comments, `!` negation,
+  trailing `/`, `*` / `**`). Auto-loaded from cwd or via `--ignore-file`.
+- **`watchwire init`** — writes starter `watchwire.toml` + `.watchwireignore`
+  (`--force`, `--with-suppressions` for a commented suppressions starter).
+- **`watchwire scan --staged`** — scan only git staged files via local
+  `git diff --cached` (no network). Exit `2` outside a git work tree.
+- **Suppressions file** (`watchwire.suppressions.toml` / `--suppressions`):
+  path + rule-id allowlist for noisy repos. Abuse risk documented in
+  `COMPLIANCE_NOTES.md`.
+- Founder-facing README **Sellable v1** section: 5-min CI install, pin `@v0.5.0`.
+- CI consumer template [`ci/consumer-scan.yml`](ci/consumer-scan.yml); examples
+  under `examples/.watchwireignore` and `examples/suppressions/`.
+
+### Changed
+
+- Version bump to **0.5.0**. Pre-commit / Action pin examples recommend `v0.5.0`.
+- `watchwire scan` paths are optional (default `.`) so `watchwire scan --staged` works.
+
+### Security
+
+- Staged listing uses argv-array `git` only (no shell); paths constrained to the
+  work-tree root (rejects `..` / absolute names from git output).
+- Suppressions are an explicit local allowlist — operators must review entries;
+  broad `rule = "*"` can hide real secrets (see COMPLIANCE_NOTES).
+
 ## [0.4.1] - 2026-09-21
 
 ### Added
@@ -75,6 +104,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - OSS core stays local-first: no SaaS, telemetry, or Marketplace listing claims.
 
+[0.5.0]: https://github.com/maxmccutcheon59/watchwire/releases/tag/v0.5.0
+[0.4.1]: https://github.com/maxmccutcheon59/watchwire/releases/tag/v0.4.1
 [0.4.0]: https://github.com/maxmccutcheon59/watchwire/releases/tag/v0.4.0
 [0.3.0]: https://github.com/maxmccutcheon59/watchwire/releases/tag/v0.3.0
 [0.2.0]: https://github.com/maxmccutcheon59/watchwire/releases/tag/v0.2.0

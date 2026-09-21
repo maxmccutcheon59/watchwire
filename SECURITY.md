@@ -32,3 +32,11 @@ Unauthorized scanning, access, or testing of third-party systems may violate the
 1. Email the contact above with details.
 2. Allow reasonable time for a fix before public disclosure.
 3. Coordinated disclosure is appreciated; please do not weaponize findings.
+
+## Local controls (ignore / suppressions / staged)
+
+- `.watchwireignore` and `watchwire.toml` `[scan].exclude` skip paths locally.
+- `watchwire.suppressions.toml` can silence findings by path + rule — treat as a
+  privileged allowlist (see `COMPLIANCE_NOTES.md`). Abuse can hide real secrets.
+- `watchwire scan --staged` reads the local git index only; it does not contact remotes.
+
