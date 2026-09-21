@@ -1,0 +1,11 @@
+# Allowlist synthetic fixtures used to test the secret scanner itself.
+title = "watchwire"
+
+[allowlist]
+description = "Synthetic test fixtures and assertions (not real credentials)"
+paths = [
+  '''tests/fixtures/.*''',
+  '''tests/test_scan\.py''',
+  '''tests/test_output\.py''',
+  '''tests/test_entropy\.py''',
+]

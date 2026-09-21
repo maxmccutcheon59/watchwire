@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-09-21
+
+### Added
+
+- `SECURITY.md` — vulnerability disclosure contact and authorized-testing-only policy.
+- `COMPLIANCE_NOTES.md` — defensive/local posture, authorized systems only, data inventory.
+- CI reference jobs for **gitleaks** secret scanning and **pip-audit** (`ci/security-ci.yml`; merge requires GitHub `workflow` OAuth scope).
+- `.gitleaks.toml` allowlist for synthetic test fixtures (fake AKIA/ghp_ patterns only).
+
+### Changed
+
+- `.gitignore` expanded for `.env*` / key material patterns.
+- Patch version bump to 0.4.1.
+
+### Security
+
+- Local gitleaks: findings limited to intentional test fixtures (allowlisted).
+- `pip-audit`: no high/critical issues in project runtime dependencies (stdlib + optional `tomli`); toolchain `pip` CVEs are CI-image concerns, not shipped with Watchwire.
+
 ## [0.4.0] - 2026-09-16
 
 ### Added

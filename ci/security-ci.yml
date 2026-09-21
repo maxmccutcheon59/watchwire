@@ -1,35 +1,6 @@
-name: CI
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.12", "3.13"]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install package + dev deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-
-      - name: Ruff
-        run: ruff check src tests
-
-      - name: Pytest
-        run: pytest -q
+# Reference security jobs — merge into .github/workflows/ci.yml when the
+# pushing credential has the GitHub OAuth `workflow` scope.
+# (Current `gh` token scopes: gist, read:org, repo — missing `workflow`.)
 
   secret-scan:
     runs-on: ubuntu-latest
@@ -62,4 +33,5 @@ jobs:
         run: |
           python -m pip install --upgrade pip pip-audit
           pip install -e ".[dev]"
+          # Skip the local editable package name; audit installed deps.
           pip-audit --skip-editable

@@ -11,5 +11,10 @@ htmlcov/
 .venv/
 venv/
 .env
+.env.*
+!.env.example
 *.swp
 .DS_Store
+
+*.pem
+id_rsa*
