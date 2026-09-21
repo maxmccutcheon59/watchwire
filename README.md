@@ -388,6 +388,14 @@ CI runs on Python 3.10 / 3.12 / 3.13 via GitHub Actions (pytest + ruff).
 
 ---
 
+
+## Security stance
+
+- **Authorized systems only** — scan trees and hosts you own or have written permission to check.
+- Local-first: no intentional network exfiltration on scan/inspect paths.
+- Synthetic fixture secrets in tests only — never real credentials.
+- See **[SECURITY.md](SECURITY.md)** and **[COMPLIANCE_NOTES.md](COMPLIANCE_NOTES.md)** (incl. suppressions abuse risk).
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
