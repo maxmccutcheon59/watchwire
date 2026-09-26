@@ -324,9 +324,9 @@ Requires `permissions: security-events: write` for Code Scanning upload. **Not**
 watchwire/
 ├── action.yml                 # composite Action (scan + optional SARIF / hygiene)
 ├── .pre-commit-hooks.yaml     # reusable pre-commit hook definition
+├── .github/workflows/        # ci.yml (Ruff + pytest) and security.yml (gitleaks + pip-audit)
 ├── ci/
-│   ├── consumer-scan.yml      # 5-min consumer CI template (@v0.5.0)
-│   └── security-ci.yml        # gitleaks + pip-audit reference jobs
+│   └── consumer-scan.yml      # 5-min consumer CI template (@v0.5.0)
 ├── examples/
 │   ├── github-action-scan.yml
 │   ├── .watchwireignore
