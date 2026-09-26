@@ -4,14 +4,13 @@
 
 **Local-first defensive CLI** for catching leaked secrets, inspecting Linux processes, and spotting risky file permissions — without sending anything off-box.
 
-Built as a portfolio / internship project demonstrating practical defensive security tooling in pure Python (stdlib only at runtime).
+Pure Python, standard library only at runtime.
 
 ---
 
-## Sellable v1 (5-minute CI install)
+## Add it to CI in 5 minutes
 
-Watchwire v0.5.0 is the first **sellable OSS layer** for founders who want local-first
-secret scanning in CI without a SaaS bill or telemetry. Pin a release tag — no Marketplace
+Watchwire v0.5.0 gives teams local-first secret scanning in CI, with no SaaS bill and no telemetry. Pin a release tag — no Marketplace
 listing required.
 
 ### 1) Init policy files (optional but recommended)
@@ -56,7 +55,7 @@ repos:
       - id: watchwire-scan
 ```
 
-### Sellable v1 surface
+### What's included
 
 | Feature | What it does |
 |---------|----------------|
