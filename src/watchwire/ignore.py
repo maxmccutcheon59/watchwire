@@ -160,7 +160,7 @@ def resolve_ignore(
 # Starter content written by ``watchwire init``.
 STARTER_WATCHWIREIGNORE = """\
 # .watchwireignore — gitignore-style paths Watchwire will skip (local-only).
-# Docs: README → Sellable v1. Abuse of broad ignores can hide real secrets;
+# Docs: README → ".watchwireignore". Abuse of broad ignores can hide real secrets;
 # prefer narrow patterns and review in PRs.
 
 # VCS / virtualenvs / caches
