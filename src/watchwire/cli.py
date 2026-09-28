@@ -31,7 +31,7 @@ from watchwire.suppressions import (
 STARTER_WATCHWIRE_TOML = """\
 # watchwire.toml — local scan policy (created by `watchwire init`).
 # Loaded automatically from the current working directory, or via --config PATH.
-# Docs: README → Sellable v1 / Policy file.
+# Docs: README → "Policy file (watchwire.toml)".
 
 [scan]
 # Extra globs on top of built-in defaults (node_modules, *.lock, poetry.lock, …).
