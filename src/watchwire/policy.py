@@ -129,27 +129,31 @@ class ScanPolicy:
         return True
 
     def is_path_excluded(self, path: Path, *, root: Path | None = None) -> bool:
-        """True if *path* matches any exclude glob."""
-        candidates: list[str] = [str(path).replace("\\", "/")]
-        try:
-            candidates.append(path.resolve().as_posix())
-        except OSError:
-            pass
+        """True if *path* matches any exclude glob.
+
+        When *path* is under *root*, globs are matched against the path
+        relative to *root* only, so directories above the scan root (e.g. a
+        checkout inside ``~/node_modules/``) cannot exclude everything.
+        """
+        rel: str | None = None
         if root is not None:
             try:
                 rel = path.resolve().relative_to(root.resolve()).as_posix()
-                candidates.append(rel)
-                candidates.append("./" + rel)
             except (ValueError, OSError):
+                rel = None
+        if rel is not None:
+            candidates: list[str] = [rel, "./" + rel]
+        else:
+            candidates = [str(path).replace("\\", "/")]
+            try:
+                candidates.append(path.resolve().as_posix())
+            except OSError:
                 pass
         candidates.append(path.name)
         for cand in candidates:
             for pattern in self.exclude:
                 if path_matches_glob(cand, pattern):
                     return True
-        # Also match if any path component is an excluded directory name
-        # covered by **/name/** patterns (already handled), but ensure
-        # SKIP-style dirs still work when only basename appears.
         return False
 
 

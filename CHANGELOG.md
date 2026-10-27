@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **False negatives when the scan root sits under a skipped directory name.**
+  Built-in skip names (`build`, `dist`, `venv`, `node_modules`, …) and
+  `[scan].exclude` / default globs were matched against the absolute path,
+  so scanning e.g. `~/build/myapp` or a checkout under `node_modules/`
+  reported no findings and exited `0`. Both checks now look only at the path
+  below the scan root. Absolute exclude globs no longer match files under the
+  scan root; write excludes relative to the root.
+
 ## [0.5.1] — 2026-09-21
 
 ### Added
