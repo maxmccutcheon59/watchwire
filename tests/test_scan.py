@@ -115,3 +115,30 @@ def test_real_fixtures_still_flag() -> None:
     assert not any("/fp/" in f.path.replace("\\", "/") or f.path.endswith(
         ("uuids.txt", "hashes.txt", "base64_padding.txt", "demo.lock", "package-lock.json")
     ) and f.kind == "high_entropy" for f in findings)
+
+
+# Regression: skip-dir names and default exclude globs used to be matched
+# against the *absolute* path, so a project checked out under a directory
+# named e.g. "build" or "node_modules" scanned as clean (exit 0).
+@pytest.mark.parametrize("parent", ["build", "dist", "venv", "node_modules", ".venv"])
+def test_skip_names_above_scan_root_do_not_hide_findings(tmp_path: Path, parent: str) -> None:
+    project = tmp_path / parent / "myapp"
+    project.mkdir(parents=True)
+    (project / "config.env").write_text("AWS_ACCESS_KEY_ID=AKIAEXAMPLEKEY000001\n")
+    kinds = {f.kind for f in scan_path(project)}
+    assert "aws_access_key_id" in kinds
+
+
+@pytest.mark.parametrize("parent", ["build", "node_modules"])
+def test_single_file_target_under_skip_name_is_scanned(tmp_path: Path, parent: str) -> None:
+    target = tmp_path / parent / "config.env"
+    target.parent.mkdir()
+    target.write_text("AWS_ACCESS_KEY_ID=AKIAEXAMPLEKEY000001\n")
+    assert scan_path(target)
+
+
+@pytest.mark.parametrize("child", ["build", "node_modules", ".venv"])
+def test_skip_names_below_scan_root_still_skip(tmp_path: Path, child: str) -> None:
+    (tmp_path / child).mkdir()
+    (tmp_path / child / "config.env").write_text("AWS_ACCESS_KEY_ID=AKIAEXAMPLEKEY000001\n")
+    assert scan_path(tmp_path) == []

@@ -115,6 +115,18 @@ def _redact(match: str, keep: int = 4) -> str:
     return match[:keep] + "…" + match[-keep:]
 
 
+def _parts_under_root(path: Path, root: Path) -> tuple[str, ...]:
+    """Path components below *root*, or all components if *path* is outside it.
+
+    Directory-name skips must only look below the scan root: a project that
+    lives in e.g. ``~/build/myapp`` would otherwise have every file skipped.
+    """
+    try:
+        return path.resolve().relative_to(root.resolve()).parts
+    except (ValueError, OSError):
+        return path.parts
+
+
 def _is_skipped(
     path: Path,
     *,
@@ -122,7 +134,7 @@ def _is_skipped(
     policy: ScanPolicy,
     ignore: IgnoreMatcher | None,
 ) -> bool:
-    if any(part in SKIP_DIR_NAMES for part in path.parts):
+    if any(part in SKIP_DIR_NAMES for part in _parts_under_root(path, root)):
         return True
     if path.suffix.lower() in SKIP_EXTENSIONS:
         return True
